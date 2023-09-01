@@ -1,5 +1,5 @@
-Terraform Custom Provider for Alibaba Cloud
-===========================================
+terraform-provider-st-ucloud
+============================
 
 This Terraform custom provider is designed for own use case scenario.
 
@@ -31,18 +31,12 @@ Local Installation
         }
       }
     }
-
-    provider "st-ucloud" {
-      region = "cn-hongkong"
-    }
     ```
 
 Why Custom Provider
 -------------------
 
-This custom provider exists due to some of the resources and data sources in the
-official UCloud Terraform provider may not fulfill the requirements of some
-scenario. The reason behind every resources and data sources are stated as below:
+This custom provider exists due to UCloud doesn't support Terraform officially.
 
 ### Resources
 
@@ -106,9 +100,9 @@ scenario. The reason behind every resources and data sources are stated as below
 
 - **st-ucloud_ddoscoo_webconfig_ssl_attachment**
 
-  This resource is designed to associate a SSL certificate to a website/domain before being added 
-  into Anti-DDoS as UCloud Terraform Provider does not support the SSL binding operation. 
-  
+  This resource is designed to associate a SSL certificate to a website/domain before being added
+  into Anti-DDoS as UCloud Terraform Provider does not support the SSL binding operation.
+
 ### Data Sources
 
 - **st-ucloud_ddoscoo_domain_resources**

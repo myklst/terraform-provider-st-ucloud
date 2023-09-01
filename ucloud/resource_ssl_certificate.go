@@ -9,65 +9,64 @@ import (
 	"golang.org/x/net/context"
 )
 
-var (
-	_ resource.Resource              = &ucloudCertResource{}
-	_ resource.ResourceWithConfigure = &ucloudCertResource{}
-)
-
-type ucloudCertResourceModel struct {
-	CertName   types.String `tfsdk:"cert_name"`
-	UserCert   types.String `tfsdk:"user_cert"`
-	PrivateKey types.String `tfsdk:"private_key"`
-	CaCert     types.String `tfsdk:"ca_cert"`
+type ucloudSslCertificateResourceModel struct {
+	CertName types.String `tfsdk:"cert_name"`
+	CaCert   types.String `tfsdk:"ca_cert"`
+	Cert     types.String `tfsdk:"cert"`
+	Key      types.String `tfsdk:"key"`
 }
 
-type ucloudCertResource struct {
+type ucloudSslCertificateResource struct {
 	client *ucdn.UCDNClient
 }
 
-func NewUcloudCertResource() resource.Resource {
-	return &ucloudCertResource{}
+var (
+	_ resource.Resource              = &ucloudSslCertificateResource{}
+	_ resource.ResourceWithConfigure = &ucloudSslCertificateResource{}
+)
+
+func NewUcloudSslCertificateResource() resource.Resource {
+	return &ucloudSslCertificateResource{}
 }
 
-func (r *ucloudCertResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_cert"
+func (r *ucloudSslCertificateResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_ssl_certificate"
 }
 
-func (r *ucloudCertResource) Schema(_ context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *ucloudSslCertificateResource) Schema(_ context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "The resource provides the cdn certificate",
+		Description: "The resource provides a SSL certificate for CDN domain",
 		Attributes: map[string]schema.Attribute{
 			"cert_name": &schema.StringAttribute{
 				Description: "The name of certificate",
 				Required:    true,
 			},
-			"user_cert": &schema.StringAttribute{
-				Description: "Certificate,e.g.cert.pem",
+			"ca_cert": &schema.StringAttribute{
+				Description: "CA certificate content",
+				Optional:    true,
+			},
+			"cert": &schema.StringAttribute{
+				Description: "Certificate content",
 				Required:    true,
 			},
-			"private_key": &schema.StringAttribute{
-				Description: "Private key,e.g.,privkey.pem",
+			"key": &schema.StringAttribute{
+				Description: "Private key content",
 				Required:    true,
 				Sensitive:   true,
-			},
-			"ca_cert": &schema.StringAttribute{
-				Description: "CA of the certificate,e.g.,chain.pem",
-				Optional:    true,
 			},
 		},
 	}
 }
 
-func (r *ucloudCertResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *ucloudSslCertificateResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
 	r.client = req.ProviderData.(ucloudClients).cdnClient
 }
 
-func (r *ucloudCertResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var model ucloudCertResourceModel
-
+func (r *ucloudSslCertificateResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var model ucloudSslCertificateResourceModel
 	diags := req.Plan.Get(ctx, &model)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -79,8 +78,8 @@ func (r *ucloudCertResource) Create(ctx context.Context, req resource.CreateRequ
 			ProjectId: &r.client.GetConfig().ProjectId,
 		},
 		CertName:   model.CertName.ValueStringPointer(),
-		UserCert:   model.UserCert.ValueStringPointer(),
-		PrivateKey: model.PrivateKey.ValueStringPointer(),
+		UserCert:   model.Cert.ValueStringPointer(),
+		PrivateKey: model.Key.ValueStringPointer(),
 		CaCert:     model.CaCert.ValueStringPointer(),
 	}
 	addCertificateResponse, err := r.client.AddCertificate(addCertificateRequest)
@@ -101,12 +100,11 @@ func (r *ucloudCertResource) Create(ctx context.Context, req resource.CreateRequ
 	resp.State.Set(ctx, &model)
 }
 
-func (r *ucloudCertResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *ucloudSslCertificateResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 }
 
-func (r *ucloudCertResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var state, plan ucloudCertResourceModel
-
+func (r *ucloudSslCertificateResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var state, plan ucloudSslCertificateResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -115,6 +113,7 @@ func (r *ucloudCertResource) Update(ctx context.Context, req resource.UpdateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	if state.CertName != plan.CertName {
 		resp.Diagnostics.AddError(
 			"[API ERROR] Failed to Update Cert",
@@ -125,9 +124,8 @@ func (r *ucloudCertResource) Update(ctx context.Context, req resource.UpdateRequ
 	resp.State.Set(ctx, req.State.Raw)
 }
 
-func (r *ucloudCertResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var model ucloudCertResourceModel
-
+func (r *ucloudSslCertificateResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var model ucloudSslCertificateResourceModel
 	diags := req.State.Get(ctx, &model)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
