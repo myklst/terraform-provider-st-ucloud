@@ -30,7 +30,7 @@ func NewUcloudCertResource() resource.Resource {
 }
 
 func (r *ucloudCertResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_cert"
+	resp.TypeName = req.ProviderTypeName + "_ssl_certificate"
 }
 
 func (r *ucloudCertResource) Schema(_ context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
