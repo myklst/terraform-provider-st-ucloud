@@ -1,5 +1,5 @@
-Terraform Custom Provider for UCloud
-===========================================
+terraform-provider-st-ucloud
+============================
 
 This Terraform custom provider is designed for own use case scenario.
 
@@ -31,18 +31,12 @@ Local Installation
         }
       }
     }
-
-    provider "st-ucloud" {
-      region = "cn-hongkong"
-    }
     ```
 
 Why Custom Provider
 -------------------
 
-This custom provider exists due to some of the resources and data sources in the
-official UCloud Terraform provider may not implement. Unimplemented resources and
-data sources are stated as below:
+This custom provider exists due to UCloud doesn't support Terraform officially.
 
 ### Resources
 

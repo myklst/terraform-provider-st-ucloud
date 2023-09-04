@@ -16,11 +16,6 @@ import (
 	"github.com/ucloud/ucloud-sdk-go/ucloud/auth"
 )
 
-// Ensure the implementation satisfies the expected interfaces
-var (
-	_ provider.Provider = &ucloudProvider{}
-)
-
 type ucloudProviderModel struct {
 	APIUrl     types.String `tfsdk:"api_url"`
 	PrivateKey types.String `tfsdk:"private_key"`
@@ -29,6 +24,11 @@ type ucloudProviderModel struct {
 	Region     types.String `tfsdk:"region"`
 	Zone       types.String `tfsdk:"zone"`
 }
+
+// Ensure the implementation satisfies the expected interfaces
+var (
+	_ provider.Provider = &ucloudProvider{}
+)
 
 // Wrapper of Ucloud client
 type ucloudClients struct {
@@ -83,11 +83,7 @@ func (p *ucloudProvider) Schema(_ context.Context, _ provider.SchemaRequest, res
 
 // Configure prepares a Ucloud API client for data sources and resources.
 func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var (
-		model                                                  ucloudProviderModel
-		publicKey, privateKey, apiUrl, zone, region, projectId string
-	)
-
+	var model ucloudProviderModel
 	diags := req.Config.Get(ctx, &model)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -104,30 +100,7 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 				"Ucloud API url. Set the value statically in the configuration, or use the UCLOUD_API_URL environment variable.",
 		)
 	}
-	if model.PublicKey.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("public_key"),
-			"Unknown Ucloud PublicKey",
-			"The provider cannot create the Ucloud API client as there is an unknown configuration value for the"+
-				"Ucloud PublicKey. Set the value statically in the configuration, or use the UCLOUD_PUBLIC_KEY environment variable.",
-		)
-	}
-	if model.PrivateKey.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("private_key"),
-			"Unknown Ucloud PrivateKey",
-			"The provider cannot create the Ucloud API client as there is an unknown configuration value for the"+
-				"Ucloud PrivateKey. Set the value statically in the configuration, or use the UCLOUD_PRIVATE_KEY environment variable.",
-		)
-	}
-	if model.ProjectId.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("project_id"),
-			"Unknown Ucloud ProjectId",
-			"The provider cannot create the Ucloud API client as there is an unknown configuration value for the"+
-				"Ucloud ProjectId. Set the value statically in the configuration, or use the UCLOUD_PROJECT_ID environment variable.",
-		)
-	}
+
 	if model.Region.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("region"),
@@ -136,6 +109,7 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 				"Ucloud Region. Set the value statically in the configuration, or use the UCLOUD_REGION environment variable.",
 		)
 	}
+
 	if model.Zone.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("zone"),
@@ -144,9 +118,46 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 				"Ucloud Zone. Set the value statically in the configuration, or use the UCLOUD_ZONE environment variable.",
 		)
 	}
+
+	if model.ProjectId.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("project_id"),
+			"Unknown Ucloud ProjectId",
+			"The provider cannot create the Ucloud API client as there is an unknown configuration value for the"+
+				"Ucloud ProjectId. Set the value statically in the configuration, or use the UCLOUD_PROJECT_ID environment variable.",
+		)
+	}
+
+	if model.PublicKey.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("public_key"),
+			"Unknown Ucloud PublicKey",
+			"The provider cannot create the Ucloud API client as there is an unknown configuration value for the"+
+				"Ucloud PublicKey. Set the value statically in the configuration, or use the UCLOUD_PUBLIC_KEY environment variable.",
+		)
+	}
+
+	if model.PrivateKey.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("private_key"),
+			"Unknown Ucloud PrivateKey",
+			"The provider cannot create the Ucloud API client as there is an unknown configuration value for the"+
+				"Ucloud PrivateKey. Set the value statically in the configuration, or use the UCLOUD_PRIVATE_KEY environment variable.",
+		)
+	}
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	var (
+		apiUrl,
+		region,
+		zone,
+		projectId,
+		publicKey,
+		privateKey string
+	)
 
 	// Default values to environment variables, but override
 	// with Terraform configuration value if set.
@@ -155,30 +166,35 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	} else {
 		apiUrl = os.Getenv("UCLOUD_API_URL")
 	}
-	if !model.PublicKey.IsNull() {
-		publicKey = model.PublicKey.ValueString()
-	} else {
-		publicKey = os.Getenv("UCLOUD_PUBLIC_KEY")
-	}
-	if !model.PrivateKey.IsNull() {
-		privateKey = model.PrivateKey.ValueString()
-	} else {
-		privateKey = os.Getenv("UCLOUD_PRIVATE_KEY")
-	}
-	if !model.ProjectId.IsNull() {
-		projectId = model.ProjectId.ValueString()
-	} else {
-		projectId = os.Getenv("UCLOUD_PROJECT_ID")
-	}
+
 	if !model.Region.IsNull() {
 		region = model.Region.ValueString()
 	} else {
 		region = os.Getenv("UCLOUD_REGION")
 	}
+
 	if !model.Zone.IsNull() {
 		zone = model.Zone.ValueString()
 	} else {
 		zone = os.Getenv("UCLOUD_ZONE")
+	}
+
+	if !model.ProjectId.IsNull() {
+		projectId = model.ProjectId.ValueString()
+	} else {
+		projectId = os.Getenv("UCLOUD_PROJECT_ID")
+	}
+
+	if !model.PublicKey.IsNull() {
+		publicKey = model.PublicKey.ValueString()
+	} else {
+		publicKey = os.Getenv("UCLOUD_PUBLIC_KEY")
+	}
+
+	if !model.PrivateKey.IsNull() {
+		privateKey = model.PrivateKey.ValueString()
+	} else {
+		privateKey = os.Getenv("UCLOUD_PRIVATE_KEY")
 	}
 
 	// If any of the expected configuration are missing, return
@@ -194,39 +210,7 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 				"is not empty.",
 		)
 	}
-	if publicKey == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("public_key"),
-			"Missing Ucloud PublicKey",
-			"The provider cannot create the Ucloud API client as there is a "+
-				"missing or empty value for the Ucloud PublicKey. Set the "+
-				"value in the configuration or use the UCLOUD_PUBLIC_KEY"+
-				"environment variable. If either is already set, ensure the value "+
-				"is not empty.",
-		)
-	}
-	if privateKey == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("private_key"),
-			"Missing Ucloud PrivateKey",
-			"The provider cannot create the Ucloud API client as there is a "+
-				"missing or empty value for the Ucloud PrivateKey. Set the "+
-				"value in the configuration or use the UCLOUD_PRIVATE_KEY"+
-				"environment variable. If either is already set, ensure the value "+
-				"is not empty.",
-		)
-	}
-	if projectId == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("project_id"),
-			"Missing Ucloud ProjectId",
-			"The provider cannot create the Ucloud API client as there is a "+
-				"missing or empty value for the Ucloud ProjectId. Set the "+
-				"value in the configuration or use the UCLOUD_PROJECT_ID"+
-				"environment variable. If either is already set, ensure the value "+
-				"is not empty.",
-		)
-	}
+
 	if region == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("region"),
@@ -238,6 +222,7 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 				"is not empty.",
 		)
 	}
+
 	if zone == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("zone"),
@@ -249,26 +234,62 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 				"is not empty.",
 		)
 	}
+
+	if projectId == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("project_id"),
+			"Missing Ucloud ProjectId",
+			"The provider cannot create the Ucloud API client as there is a "+
+				"missing or empty value for the Ucloud ProjectId. Set the "+
+				"value in the configuration or use the UCLOUD_PROJECT_ID"+
+				"environment variable. If either is already set, ensure the value "+
+				"is not empty.",
+		)
+	}
+
+	if publicKey == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("public_key"),
+			"Missing Ucloud PublicKey",
+			"The provider cannot create the Ucloud API client as there is a "+
+				"missing or empty value for the Ucloud PublicKey. Set the "+
+				"value in the configuration or use the UCLOUD_PUBLIC_KEY"+
+				"environment variable. If either is already set, ensure the value "+
+				"is not empty.",
+		)
+	}
+
+	if privateKey == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("private_key"),
+			"Missing Ucloud PrivateKey",
+			"The provider cannot create the Ucloud API client as there is a "+
+				"missing or empty value for the Ucloud PrivateKey. Set the "+
+				"value in the configuration or use the UCLOUD_PRIVATE_KEY"+
+				"environment variable. If either is already set, ensure the value "+
+				"is not empty.",
+		)
+	}
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	cred := auth.Credential{
+	keys := auth.Credential{
 		PublicKey:  publicKey,
 		PrivateKey: privateKey,
 	}
 	cfg := ucloud.Config{
 		BaseUrl:   apiUrl,
-		ProjectId: projectId,
-		Zone:      zone,
 		Region:    region,
+		Zone:      zone,
+		ProjectId: projectId,
 	}
-
-	ucdnClient := ucdn.NewClient(&cfg, &cred)
+	client := ucdn.NewClient(&cfg, &keys)
 
 	// Ucloud clients wrapper
 	ucloudClients := ucloudClients{
-		cdnClient: ucdnClient,
+		cdnClient: client,
 	}
 
 	resp.DataSourceData = ucloudClients
@@ -283,7 +304,7 @@ func (p *ucloudProvider) DataSources(_ context.Context) []func() datasource.Data
 
 func (p *ucloudProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewUcloudCertResource,
+		NewUcloudSslCertificateResource,
 		NewUcloudCdnDomainResource,
 	}
 }
