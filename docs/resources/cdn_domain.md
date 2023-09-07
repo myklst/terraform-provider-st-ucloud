@@ -13,59 +13,78 @@ This resource provides the configuration of acceleration domain
 ## Example Usage
 
 ```terraform
-resource "st-ucloud_cdn_domain" "def" {
-  depends_on = [
-    st-ucloud_cert.def
-  ]
-
-  domain = "xxxxx-cdn.com"
-  test_url = "http://xxxx-cdn.com/"
+resource "st-ucloud_cdn_domain" "test" {
+  domain    = "test.pgasia-cdn.com"
+  test_url  = "http://origin.pgasia-cdn.com/"
   area_code = "cn"
-  cdn_type = "web"
-  cdn_protocol = "http|https"
-  cert_name = "def"
-  tag = "Default"
+  cdn_type  = "web"
 
-  origin_conf = {
-    origin_ip_list = ["origin.xxxx-cdn.com"]
-#    origin_host = "origin.xxxx-cdn.com"
-    origin_port = 80
-    origin_protocol = "http"
+  origin_conf {
+    origin_ip_list   = ["origin-ws-cn-7z8567axjz.sige-test3.com"]
+    origin_host      = "pgasia-cdn.com"
+    origin_port      = 80
+    origin_protocol  = "https"
     origin_follow301 = 1
-    backup_origin_enable = false
   }
 
-  cache_conf = {
-#    cache_host = ""
-    cache_list = [
-      {
-        path_pattern = "/*"
-        ttl: 30
-        cache_unit = "day"
-        cache_behavior = true
-#        follow_origin_rule = true
-        description = "test"
-     },
-    ]
+  cache_conf {
+    cache_host = "pgasia-cdn.com"
+    cache_rule {
+      path_pattern       = "/"
+      description        = "test"
+      ttl                = 60
+      cache_unit         = "sec"
+      cache_behavior     = true
+      follow_origin_rule = true
+    }
+
+    cache_rule {
+      path_pattern       = ".*"
+      description        = "test2"
+      ttl                = 60
+      cache_unit         = "sec"
+      cache_behavior     = true
+      follow_origin_rule = true
+    }
+
+    http_code_cache_rule {
+      path_pattern       = ".*"
+      description        = "test"
+      ttl                = 60
+      cache_unit         = "sec"
+      cache_behavior     = true
+      follow_origin_rule = true
+      http_code          = 400
+      use_regex          = false
+    }
+
+    http_code_cache_rule {
+      path_pattern       = ".*"
+      description        = "test"
+      ttl                = 60
+      cache_unit         = "sec"
+      cache_behavior     = true
+      follow_origin_rule = true
+      http_code          = 401
+      use_regex          = false
+    }
   }
 
   access_control_conf = {
-#    ip_blacklist = []
-#    ip_blacklist_empty = true
+    enable_refer = false
+    ip_blacklist = ["100.100.100.100", "4.4.4.4"]
     refer_conf = {
-#      refer_type = 0
-#      null_refer = 0
-#      refer_list = []
+      null_refer = 1
+      refer_list = ["sige-test3.com"]
+      refer_type = 1
     }
-#    enable_refer = false
   }
 
   advanced_conf = {
-#    http_client_header_list = []
-#    http_origin_header_list = []
-#    http_to_https = false
+    http_client_header_list = ["Test:test_client"]
+    http_origin_header_list = ["Test:test_origin"]
+    http_to_https           = false
   }
-
 }
 ```
 
@@ -74,43 +93,33 @@ resource "st-ucloud_cdn_domain" "def" {
 
 ### Required
 
-- `access_control_conf` (Attributes) The configuration of access control. (see [below for nested schema](#nestedatt--access_control_conf))
-- `advanced_conf` (Attributes) The advance configuration. (see [below for nested schema](#nestedatt--advanced_conf))
-- `cache_conf` (Attributes) The configuration of cache (see [below for nested schema](#nestedatt--cache_conf))
+- `area_code` (String) Acceleration area.`cn` represents China.`abroad` represents regions outside China.If the value is unset,domain is accelerated in all regions
+- `cdn_type` (String) `web` for website service,`stream` for video service,`download` for download service
 - `domain` (String) Acceleration domain
-- `origin_conf` (Attributes) The configuration of origin (see [below for nested schema](#nestedatt--origin_conf))
+- `test_url` (String) Test url
 
 ### Optional
 
-- `area_code` (String) Acceleration area.`cn` represents China.`abroad` represents regions outside China.If the value is unset,domain is accelerated in all regions
-- `cdn_protocol` (String) `http` for only http supported, `http|https` enable https feature
-- `cdn_type` (String) `web` for website service,`stream` for video service,`download` for download service
-- `cert_name` (String) The name of certificate
+- `access_control_conf` (Attributes) The configuration of access control. (see [below for nested schema](#nestedatt--access_control_conf))
+- `advanced_conf` (Attributes) The advance configuration. (see [below for nested schema](#nestedatt--advanced_conf))
+- `cache_conf` (Block, Optional) The configuration of cache (see [below for nested schema](#nestedblock--cache_conf))
+- `origin_conf` (Block, Optional) The configuration of origin (see [below for nested schema](#nestedblock--origin_conf))
 - `tag` (String) The group of service.If the value is unset. `Default` is used as default value
-- `test_url` (String) Test url
 
 ### Read-Only
 
-- `cert_name_abroad` (String) Certificate name.
-- `cert_name_cn` (String) Certificate name.
 - `cname` (String) Cname
 - `create_time` (Number) Create time.
 - `domain_id` (String) Id of acceleration domain, generated by ucloud.
-- `https_status_abroad` (String) Https status
-- `https_status_cn` (String) Https status
 - `status` (String) Domain status
 
 <a id="nestedatt--access_control_conf"></a>
 ### Nested Schema for `access_control_conf`
 
-Required:
-
-- `refer_conf` (Attributes) (see [below for nested schema](#nestedatt--access_control_conf--refer_conf))
-
 Optional:
 
-- `enable_refer` (Boolean) Whether enable refer.
 - `ip_blacklist` (List of String) Request from address in blacklist will be denied.
+- `refer_conf` (Attributes) (see [below for nested schema](#nestedatt--access_control_conf--refer_conf))
 
 <a id="nestedatt--access_control_conf--refer_conf"></a>
 ### Nested Schema for `access_control_conf.refer_conf`
@@ -133,35 +142,52 @@ Optional:
 - `http_to_https` (Boolean) If perform a forced conversion from http to https.
 
 
-<a id="nestedatt--cache_conf"></a>
+<a id="nestedblock--cache_conf"></a>
 ### Nested Schema for `cache_conf`
-
-Required:
-
-- `cache_list` (Attributes List) The list of cache rule (see [below for nested schema](#nestedatt--cache_conf--cache_list))
 
 Optional:
 
 - `cache_host` (String) Cache Host
+- `cache_rule` (Block List) The list of cache rule (see [below for nested schema](#nestedblock--cache_conf--cache_rule))
+- `http_code_cache_rule` (Block List) The list of http code cache rule (see [below for nested schema](#nestedblock--cache_conf--http_code_cache_rule))
 
-<a id="nestedatt--cache_conf--cache_list"></a>
-### Nested Schema for `cache_conf.cache_list`
+<a id="nestedblock--cache_conf--cache_rule"></a>
+### Nested Schema for `cache_conf.cache_rule`
 
 Required:
+
+- `path_pattern` (String) The pattern of path
+
+Optional:
 
 - `cache_behavior` (Boolean) If caching is enabled.The optional values are true and false.
 - `cache_unit` (String) The unit of caching time.The optional values are `sec`,`min`,`hour` and `day`.
 - `description` (String) The description of rule
-- `path_pattern` (String) The pattern of path
+- `follow_origin_rule` (Boolean) If follow caching instructions in http header from the origin.The optional values are true and false.
 - `ttl` (Number) The cache time
+- `use_regex` (Boolean) If use regex.Default is false
+
+
+<a id="nestedblock--cache_conf--http_code_cache_rule"></a>
+### Nested Schema for `cache_conf.http_code_cache_rule`
+
+Required:
+
+- `http_code` (Number) Http code,range from 200 to 600,200 and 206 are not allowed.
 
 Optional:
 
+- `cache_behavior` (Boolean) If caching is enabled.The optional values are true and false.
+- `cache_unit` (String) The unit of caching time.The optional values are `sec`,`min`,`hour` and `day`.
+- `description` (String) The description of rule
 - `follow_origin_rule` (Boolean) If follow caching instructions in http header from the origin.The optional values are true and false.
+- `path_pattern` (String) The pattern of path
+- `ttl` (Number) The cache time
+- `use_regex` (Boolean) If use regex.Default is false
 
 
 
-<a id="nestedatt--origin_conf"></a>
+<a id="nestedblock--origin_conf"></a>
 ### Nested Schema for `origin_conf`
 
 Required:

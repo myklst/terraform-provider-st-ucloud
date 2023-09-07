@@ -2,45 +2,47 @@ package ucloud
 
 import (
 	"context"
+
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/myklst/terraform-provider-st-ucloud/ucloud/api"
 	"github.com/ucloud/ucloud-sdk-go/services/ucdn"
 )
 
 var (
-	_ datasource.DataSource              = &ucloudCertDataSource{}
-	_ datasource.DataSourceWithConfigure = &ucloudCertDataSource{}
+	_ datasource.DataSource              = &certDataSource{}
+	_ datasource.DataSourceWithConfigure = &certDataSource{}
 )
 
-type ucloudCert struct {
+type certificate struct {
 	CertName types.String `tfsdk:"cert_name"`
 	Domains  types.List   `tfsdk:"domains"`
 }
 
-type ucloudCertDataSourceModel struct {
-	CertList []ucloudCert `tfsdk:"cert_list"`
+type certDataSourceModel struct {
+	CertList []certificate `tfsdk:"cert_list"`
 }
 
-func newCertDataSourceModel() *ucloudCertDataSourceModel {
-	m := &ucloudCertDataSourceModel{}
-	m.CertList = make([]ucloudCert, 0)
+func newCertDataSourceModel() *certDataSourceModel {
+	m := &certDataSourceModel{}
+	m.CertList = make([]certificate, 0)
 	return m
 }
 
-type ucloudCertDataSource struct {
+type certDataSource struct {
 	client *ucdn.UCDNClient
 }
 
-func NewUcloudCertDataSource() datasource.DataSource {
-	return &ucloudCertDataSource{}
+func NewCertDataSource() datasource.DataSource {
+	return &certDataSource{}
 }
 
-func (d *ucloudCertDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+func (d *certDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_ssl_certificate"
 }
 
-func (d *ucloudCertDataSource) Schema(_ context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *certDataSource) Schema(_ context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "This data source provides certificates configured in ucloud, including certificate name,domains associated with the certificate,etc.",
 		Attributes: map[string]schema.Attribute{
@@ -65,14 +67,14 @@ func (d *ucloudCertDataSource) Schema(_ context.Context, req datasource.SchemaRe
 	}
 }
 
-func (d *ucloudCertDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+func (d *certDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
 	d.client = req.ProviderData.(ucloudClients).cdnClient
 }
 
-func (d *ucloudCertDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (d *certDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	model := newCertDataSourceModel()
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, model)...)
@@ -80,38 +82,18 @@ func (d *ucloudCertDataSource) Read(ctx context.Context, req datasource.ReadRequ
 		return
 	}
 
-	var getCertificateV2Request ucdn.GetCertificateV2Request
-
-	offset, limit := 0, 10
-	getCertificateV2Request.Offset = &offset
-	getCertificateV2Request.Limit = &limit
-	getCertificateV2Request.ProjectId = &d.client.GetConfig().ProjectId
-
-	for {
-		getCertificateV2Response, err := d.client.GetCertificateV2(&getCertificateV2Request)
-		if err != nil {
-			resp.Diagnostics.AddError("[API ERROR] Fail to Get Certificate", err.Error())
+	certlist := api.GetCertificates(d.client, "")
+	for _, cert := range certlist {
+		c := certificate{}
+		c.CertName = types.StringValue(cert.CertName)
+		domains, diags := types.ListValueFrom(ctx, types.StringType, cert.Domains)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
 			return
 		}
-		if getCertificateV2Response.RetCode != 0 {
-			resp.Diagnostics.AddError("[API ERROR] Fail to Get Certificate", getCertificateV2Response.Message)
-			return
-		}
-		for _, cert := range getCertificateV2Response.CertList {
-			ucloudCert := ucloudCert{}
-			ucloudCert.CertName = types.StringValue(cert.CertName)
-			domains, diags := types.ListValueFrom(ctx, types.StringType, cert.Domains)
-			resp.Diagnostics.Append(diags...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-			ucloudCert.Domains = domains
-			model.CertList = append(model.CertList, ucloudCert)
-		}
-		if len(getCertificateV2Response.CertList) < limit {
-			break
-		}
-		offset += limit
+		c.Domains = domains
+		model.CertList = append(model.CertList, c)
 	}
-	resp.State.Set(ctx, model)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
 }

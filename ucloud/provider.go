@@ -16,8 +16,9 @@ import (
 	"github.com/ucloud/ucloud-sdk-go/ucloud/auth"
 )
 
+const ApiEndpoint = "https://api.ucloud.cn"
+
 type ucloudProviderModel struct {
-	APIUrl     types.String `tfsdk:"api_url"`
 	PrivateKey types.String `tfsdk:"private_key"`
 	PublicKey  types.String `tfsdk:"public_key"`
 	ProjectId  types.String `tfsdk:"project_id"`
@@ -52,10 +53,6 @@ func (p *ucloudProvider) Schema(_ context.Context, _ provider.SchemaRequest, res
 		Description: "The Ucloud provider is used to interact with the many resources supported by Ucloud. " +
 			"The provider needs to be configured with the proper credentials before it can be used.",
 		Attributes: map[string]schema.Attribute{
-			"api_url": schema.StringAttribute{
-				Description: "",
-				Optional:    true,
-			},
 			"public_key": schema.StringAttribute{
 				Description: "Public key for Ucloud API. May also be provided via UCLOUD_PUBLIC_KEY environment variable",
 				Optional:    true,
@@ -92,15 +89,6 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 
 	// If practitioner provided a configuration value for any of the
 	// attributes, it must be a known value.
-	if model.APIUrl.IsUnknown() {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("api_url"),
-			"Unknown Ucloud API Url",
-			"The provider cannot create the Ucloud API client as there is an unknown configuration value for the"+
-				"Ucloud API url. Set the value statically in the configuration, or use the UCLOUD_API_URL environment variable.",
-		)
-	}
-
 	if model.Region.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("region"),
@@ -151,7 +139,6 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	}
 
 	var (
-		apiUrl,
 		region,
 		zone,
 		projectId,
@@ -161,12 +148,6 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 
 	// Default values to environment variables, but override
 	// with Terraform configuration value if set.
-	if !model.APIUrl.IsNull() {
-		apiUrl = model.APIUrl.ValueString()
-	} else {
-		apiUrl = os.Getenv("UCLOUD_API_URL")
-	}
-
 	if !model.Region.IsNull() {
 		region = model.Region.ValueString()
 	} else {
@@ -199,18 +180,6 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 
 	// If any of the expected configuration are missing, return
 	// errors with provider-specific guidance.
-	if apiUrl == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("api_url"),
-			"Missing Ucloud API Url",
-			"The provider cannot create the Ucloud API client as there is a "+
-				"missing or empty value for the Ucloud API Url. Set the "+
-				"value in the configuration or use the UCLOUD_API_URL"+
-				"environment variable. If either is already set, ensure the value "+
-				"is not empty.",
-		)
-	}
-
 	if region == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("region"),
@@ -280,7 +249,7 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		PrivateKey: privateKey,
 	}
 	cfg := ucloud.Config{
-		BaseUrl:   apiUrl,
+		BaseUrl:   ApiEndpoint,
 		Region:    region,
 		Zone:      zone,
 		ProjectId: projectId,
@@ -298,13 +267,14 @@ func (p *ucloudProvider) Configure(ctx context.Context, req provider.ConfigureRe
 
 func (p *ucloudProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewUcloudCertDataSource,
+		NewCertDataSource,
 	}
 }
 
 func (p *ucloudProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewUcloudSslCertificateResource,
-		NewUcloudCdnDomainResource,
+		NewSslCertificateResource,
+		NewCdnDomainResource,
+		NewCdnDomainSslResource,
 	}
 }
