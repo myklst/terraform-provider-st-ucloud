@@ -2,7 +2,6 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -13,9 +12,9 @@ import (
 )
 
 const (
-	DomainStatusEnable   = "enable"
-	DomainStatusDelete   = "delete"
-	DomainStatusChekFail = "checkFail"
+	DomainStatusEnable    = "enable"
+	DomainStatusDelete    = "delete"
+	DomainStatusCheckFail = "checkFail"
 )
 
 type UpdateCdnHttpsRequest struct {
@@ -47,10 +46,10 @@ func WaitForDomainStatus(client *ucdn.UCDNClient, domainId string, targetStatus 
 			if cErr, ok := err.(uerr.ClientError); ok && cErr.Retryable() {
 				return err
 			}
+			if Retryable(getUcdnDomainConfigResponse.RetCode) {
+				return errors.New(getUcdnDomainConfigResponse.Message)
+			}
 			return backoff.Permanent(err)
-		}
-		if getUcdnDomainConfigResponse.RetCode != 0 {
-			return backoff.Permanent(fmt.Errorf("%s", getUcdnDomainConfigResponse.Message))
 		}
 		for _, status := range targetStatus {
 			if status == DomainStatusDelete && len(getUcdnDomainConfigResponse.DomainList) == 0 {
@@ -113,9 +112,10 @@ func UpdateDomainHttpsConfig(client *ucdn.UCDNClient, domainId string, enable bo
 			if cErr, ok := err.(uerr.ClientError); ok && cErr.Retryable() {
 				return err
 			}
-			if updateCdnHttpsResponse.RetCode != 44996 || updateCdnHttpsRequest.HttpsStatus == "enable" {
-				return backoff.Permanent(err)
+			if Retryable(updateCdnHttpsResponse.RetCode) {
+				return errors.New(updateCdnHttpsResponse.Message)
 			}
+			return backoff.Permanent(err)
 		}
 		return nil
 	}
@@ -150,10 +150,10 @@ func GetUcdnDomainConfig(client *ucdn.UCDNClient, domainId string) (*DomainConfi
 			if cErr, ok := err.(uerr.ClientError); ok && cErr.Retryable() {
 				return err
 			}
+			if Retryable(getUcdnDomainConfigResponse.RetCode) {
+				return errors.New(getUcdnDomainConfigResponse.Message)
+			}
 			return backoff.Permanent(err)
-		}
-		if getUcdnDomainConfigResponse.RetCode != 0 {
-			return backoff.Permanent(fmt.Errorf("%s", getUcdnDomainConfigResponse.Message))
 		}
 		return nil
 	}
@@ -258,8 +258,8 @@ type UpdateCdnAccessControlConfig struct {
 	IpBlackListEmpty bool
 
 	ReferConf struct {
-		ReferType *int64
-		NullRefer *int64
+		ReferType *int
+		NullRefer *int
 		ReferList []string
 	}
 	EnableRefer bool
@@ -305,10 +305,10 @@ func UpdateCdnDomain(client *ucdn.UCDNClient, req *UpdateCdnDomainRequest) error
 			if cErr, ok := err.(uerr.ClientError); ok && cErr.Retryable() {
 				return err
 			}
+			if Retryable(updateCdnDomainResponse.RetCode) {
+				return errors.New(updateCdnDomainResponse.Message)
+			}
 			return backoff.Permanent(err)
-		}
-		if updateCdnDomainResponse.RetCode != 0 && updateCdnDomainResponse.RetCode != 44015 {
-			return backoff.Permanent(fmt.Errorf("%s", updateCdnDomainResponse.Message))
 		}
 		return nil
 	}
@@ -321,5 +321,51 @@ func UpdateCdnDomain(client *ucdn.UCDNClient, req *UpdateCdnDomainRequest) error
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func DeleteDomain(client *ucdn.UCDNClient, domainId string) error {
+	updateUcdnDomainStatusRequest := &struct {
+		request.CommonBase
+		DomainId string
+		Status   string
+		IsDcdn   bool
+	}{
+		CommonBase: request.CommonBase{
+			ProjectId: &client.GetConfig().ProjectId,
+		},
+		DomainId: domainId,
+		Status:   "delete",
+		IsDcdn:   false,
+	}
+
+	var (
+		err                            error
+		updateUcdnDomainStatusResponse response.CommonBase
+	)
+	updateDomainStatus := func() error {
+		err = client.InvokeAction("UpdateUcdnDomainStatus", updateUcdnDomainStatusRequest, &updateUcdnDomainStatusResponse)
+		if err != nil {
+			if cErr, ok := err.(uerr.ClientError); ok && cErr.Retryable() {
+				return err
+			}
+			if Retryable(updateUcdnDomainStatusResponse.RetCode) {
+				return errors.New(updateUcdnDomainStatusResponse.Message)
+			}
+			return backoff.Permanent(err)
+		}
+		return nil
+	}
+	reconnectBackoff := backoff.NewExponentialBackOff()
+	reconnectBackoff.MaxElapsedTime = 30 * time.Second
+	err = backoff.Retry(updateDomainStatus, reconnectBackoff)
+	if err != nil {
+		return err
+	}
+	_, err = WaitForDomainStatus(client, domainId, []string{DomainStatusDelete})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
