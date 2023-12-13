@@ -39,7 +39,9 @@ func AddCertificate(client *ucdn.UCDNClient, name, userCert, privateKey, caCert 
 	return backoff.Retry(addCertificate, reconnectBackoff)
 }
 
-func GetCertificates(client *ucdn.UCDNClient, name string) []ucdn.CertList {
+// Get ceritificate with specific cert name.
+// If name is empty string, this function will return all certificates.
+func GetCertificates(client *ucdn.UCDNClient, name string) ([]ucdn.CertList, error) {
 	result := make([]ucdn.CertList, 0)
 
 	offset, limit := 0, 10
@@ -74,7 +76,7 @@ func GetCertificates(client *ucdn.UCDNClient, name string) []ucdn.CertList {
 	for {
 		err = backoff.Retry(getCertificate, reconnectBackoff)
 		if err != nil {
-			return result
+			return result, err
 		}
 		if name != "" {
 			for _, cert := range getCertificateV2Response.CertList {
@@ -91,7 +93,8 @@ func GetCertificates(client *ucdn.UCDNClient, name string) []ucdn.CertList {
 		}
 		offset += limit
 	}
-	return result
+
+	return result, nil
 }
 
 func DeleteCertificate(client *ucdn.UCDNClient, name string) error {
