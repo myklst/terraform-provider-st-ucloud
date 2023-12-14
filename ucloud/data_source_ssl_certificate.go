@@ -84,38 +84,28 @@ func (d *certDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 
 	state.CertNameList = model.CertNameList
 
-	certlist, err := api.GetCertificates(d.client, "")
+	var queryList []string
+	resp.Diagnostics.Append(state.CertNameList.ElementsAs(ctx, &queryList, false)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	certlist, err := api.GetCertificates(d.client, queryList...)
 	if err != nil {
 		resp.Diagnostics.AddError("[API ERROR]Fail to get ssl status", err.Error())
 		return
 	}
 
-	state.CertList = make([]*certificate, 0)
-	if state.CertNameList.IsNull() {
-		for _, cert := range certlist {
-			domains, _ := types.ListValueFrom(ctx, types.StringType, cert.Domains)
-			c := &certificate{
-				CertName: types.StringValue(cert.CertName),
-				Domains:  domains,
-			}
-			state.CertList = append(state.CertList, c)
+	state.CertList = make([]*certificate, len(queryList))
+	for _, cert := range certlist {
+		if cert == nil {
+			continue
 		}
-	} else {
-		for _, name := range state.CertNameList.Elements() {
-			var c *certificate
-
-			for _, cert := range certlist {
-				if name.(types.String).ValueString() == cert.CertName {
-					domains, _ := types.ListValueFrom(ctx, types.StringType, cert.Domains)
-					c = &certificate{
-						CertName: types.StringValue(cert.CertName),
-						Domains:  domains,
-					}
-					break
-				}
-			}
-			state.CertList = append(state.CertList, c)
+		domains, _ := types.ListValueFrom(ctx, types.StringType, cert.Domains)
+		c := &certificate{
+			CertName: types.StringValue(cert.CertName),
+			Domains:  domains,
 		}
+		state.CertList = append(state.CertList, c)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
