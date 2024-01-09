@@ -1,7 +1,7 @@
 package api
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -27,10 +27,10 @@ func AddCertificate(client *ucdn.UCDNClient, name, userCert, privateKey, caCert 
 			if cErr, ok := err.(uerr.ClientError); ok && cErr.Retryable() {
 				return err
 			}
+			if Retryable(addCertificateResponse.RetCode) {
+				return errors.New(addCertificateResponse.Message)
+			}
 			return backoff.Permanent(err)
-		}
-		if addCertificateResponse.RetCode != 0 {
-			return backoff.Permanent(fmt.Errorf("%s", addCertificateResponse.Message))
 		}
 		return nil
 	}
@@ -76,10 +76,10 @@ func GetCertificates(client *ucdn.UCDNClient, nameList ...string) ([]*ucdn.CertL
 			if cErr, ok := err.(uerr.ClientError); ok && cErr.Retryable() {
 				return err
 			}
+			if Retryable(getCertificateV2Response.RetCode) {
+				return errors.New(getCertificateV2Response.Message)
+			}
 			return backoff.Permanent(err)
-		}
-		if getCertificateV2Response.RetCode != 0 {
-			return backoff.Permanent(fmt.Errorf("%s", getCertificateV2Response.Message))
 		}
 		return nil
 	}
@@ -125,10 +125,13 @@ func DeleteCertificate(client *ucdn.UCDNClient, name string) error {
 	}
 
 	deleteCertificate := func() error {
-		_, err := client.DeleteCertificate(&deleteCertificateRequest)
+		deleteCertificateResponse, err := client.DeleteCertificate(&deleteCertificateRequest)
 		if err != nil {
 			if cErr, ok := err.(uerr.ClientError); ok && cErr.Retryable() {
 				return err
+			}
+			if Retryable(deleteCertificateResponse.RetCode) {
+				return errors.New(deleteCertificateResponse.Message)
 			}
 			return backoff.Permanent(err)
 		}
