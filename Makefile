@@ -39,8 +39,12 @@ generate-terraform-document:
 
 .PHONY: go-fmt
 go-fmt:
-	goimports -l -w -local "github.com/myklst/terraform-provider-st-gcp/" .
+	goimports -l -w -local "github.com/myklst/$(CUSTOM_PROVIDER_NAME)/" .
 
 .PHONY: go-lint
 go-lint:
 	golangci-lint run
+
+.PHONY: go-test
+go-test:
+	go test -v ./...

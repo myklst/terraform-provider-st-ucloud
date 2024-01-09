@@ -89,14 +89,14 @@ func (d *certDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	certlist, err := api.GetCertificates(d.client, queryList...)
+	certs, err := api.GetCertificates(d.client, queryList...)
 	if err != nil {
 		resp.Diagnostics.AddError("[API ERROR]Fail to get ssl status", err.Error())
 		return
 	}
 
 	state.CertList = make([]*certificate, len(queryList))
-	for _, cert := range certlist {
+	for _, cert := range certs {
 		if cert == nil {
 			continue
 		}

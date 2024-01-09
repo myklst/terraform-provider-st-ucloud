@@ -14,14 +14,14 @@ This resource provides the configuration of acceleration domain
 
 ```terraform
 resource "st-ucloud_cdn_domain" "test" {
-  domain    = "test.pgasia-cdn.com"
-  test_url  = "http://origin.pgasia-cdn.com/"
+  domain    = "test.example.com"
+  test_url  = "http://origin.example.com/"
   area_code = "cn"
   cdn_type  = "web"
 
   origin_conf {
     origin_ip_list   = ["origin-ws-cn-7z8567axjz.sige-test3.com"]
-    origin_host      = "pgasia-cdn.com"
+    origin_host      = "example.com"
     origin_port      = 80
     origin_protocol  = "https"
     origin_follow301 = true

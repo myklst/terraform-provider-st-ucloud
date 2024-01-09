@@ -110,6 +110,7 @@ func GetCertificates(client *ucdn.UCDNClient, nameList ...string) ([]*ucdn.CertL
 		if len(getCertificateV2Response.CertList) < limit {
 			break
 		}
+
 		offset += limit
 	}
 
