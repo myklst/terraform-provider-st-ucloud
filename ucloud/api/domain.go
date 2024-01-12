@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	DomainStatusEnable   = "enable"
-	DomainStatusDelete   = "delete"
-	DomainStatusChekFail = "checkFail"
+	DomainStatusEnable    = "enable"
+	DomainStatusDelete    = "delete"
+	DomainStatusCheckFail = "checkFail"
 )
 
 type UpdateCdnHttpsRequest struct {
@@ -321,5 +321,51 @@ func UpdateCdnDomain(client *ucdn.UCDNClient, req *UpdateCdnDomainRequest) error
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func DeleteDomain(client *ucdn.UCDNClient, domainId string) error {
+	updateUcdnDomainStatusRequest := &struct {
+		request.CommonBase
+		DomainId string
+		Status   string
+		IsDcdn   bool
+	}{
+		CommonBase: request.CommonBase{
+			ProjectId: &client.GetConfig().ProjectId,
+		},
+		DomainId: domainId,
+		Status:   "delete",
+		IsDcdn:   false,
+	}
+
+	var (
+		err                            error
+		updateUcdnDomainStatusResponse response.CommonBase
+	)
+	updateDomainStatus := func() error {
+		err = client.InvokeAction("UpdateUcdnDomainStatus", updateUcdnDomainStatusRequest, &updateUcdnDomainStatusResponse)
+		if err != nil {
+			if cErr, ok := err.(uerr.ClientError); ok && cErr.Retryable() {
+				return err
+			}
+			if Retryable(updateUcdnDomainStatusResponse.RetCode) {
+				return errors.New(updateUcdnDomainStatusResponse.Message)
+			}
+			return backoff.Permanent(err)
+		}
+		return nil
+	}
+	reconnectBackoff := backoff.NewExponentialBackOff()
+	reconnectBackoff.MaxElapsedTime = 30 * time.Second
+	err = backoff.Retry(updateDomainStatus, reconnectBackoff)
+	if err != nil {
+		return err
+	}
+	_, err = WaitForDomainStatus(client, domainId, []string{DomainStatusDelete})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

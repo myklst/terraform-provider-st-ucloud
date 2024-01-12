@@ -25,7 +25,6 @@ import (
 	"github.com/ucloud/ucloud-sdk-go/services/ucdn"
 	uerr "github.com/ucloud/ucloud-sdk-go/ucloud/error"
 	"github.com/ucloud/ucloud-sdk-go/ucloud/request"
-	"github.com/ucloud/ucloud-sdk-go/ucloud/response"
 )
 
 type cacheRuleModel struct {
@@ -433,9 +432,15 @@ func (r *cdnDomainResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 	model.DomainId = types.StringValue(createCdnDomainResponse.DomainList[0].DomainId)
-	_, err = api.WaitForDomainStatus(r.client, model.DomainId.ValueString(), []string{api.DomainStatusEnable, api.DomainStatusChekFail})
+	status, err := api.WaitForDomainStatus(r.client, model.DomainId.ValueString(), []string{api.DomainStatusEnable, api.DomainStatusCheckFail})
 	if err != nil {
 		resp.Diagnostics.AddError("[API ERROR] Fail to Get CdnDomain Status", err.Error())
+		return
+	}
+
+	if status == api.DomainStatusCheckFail {
+		api.DeleteDomain(r.client, model.DomainId.ValueString())
+		resp.Diagnostics.AddError("[API ERROR] Fail to Create CdnDomain", "Domain audit failed")
 		return
 	}
 
@@ -512,54 +517,14 @@ func (r *cdnDomainResource) Update(ctx context.Context, req resource.UpdateReque
 
 func (r *cdnDomainResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var (
-		model                          *cdnDomainResourceModel
-		updateUcdnDomainStatusResponse response.CommonBase
+		model *cdnDomainResourceModel
 	)
 	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	updateUcdnDomainStatusRequest := &struct {
-		request.CommonBase
-		DomainId string
-		Status   string
-		IsDcdn   bool
-	}{
-		CommonBase: request.CommonBase{
-			ProjectId: &r.client.GetConfig().ProjectId,
-		},
-		DomainId: model.DomainId.ValueString(),
-		Status:   "delete",
-		IsDcdn:   false,
-	}
-
-	var err error
-	updateDomainStatus := func() error {
-		err = r.client.InvokeAction("UpdateUcdnDomainStatus", updateUcdnDomainStatusRequest, &updateUcdnDomainStatusResponse)
-		if err != nil {
-			if cErr, ok := err.(uerr.ClientError); ok && cErr.Retryable() {
-				return err
-			}
-			if api.Retryable(updateUcdnDomainStatusResponse.RetCode) {
-				return errors.New(updateUcdnDomainStatusResponse.Message)
-			}
-			return backoff.Permanent(err)
-		}
-		return nil
-	}
-	reconnectBackoff := backoff.NewExponentialBackOff()
-	reconnectBackoff.MaxElapsedTime = 30 * time.Second
-	err = backoff.Retry(updateDomainStatus, reconnectBackoff)
-	if err != nil {
-		resp.Diagnostics.AddError("[API ERROR] Fail to Update CdnDomain", err.Error())
-		return
-	}
-	_, err = api.WaitForDomainStatus(r.client, model.DomainId.ValueString(), []string{api.DomainStatusDelete})
-	if err != nil {
-		resp.Diagnostics.AddError("[API ERROR] Fail to get update status", err.Error())
-		return
-	}
+	api.DeleteDomain(r.client, model.DomainId.ValueString())
 }
 
 func (r *cdnDomainResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -688,6 +653,7 @@ func (r *cdnDomainResource) buildUpdateCdnDomainRequest(m *cdnDomainResourceMode
 				CacheBehavior:    rule.CacheBehavior.ValueBool(),
 				Description:      rule.Description.ValueString(),
 				FollowOriginRule: rule.FollowOriginRule.ValueBool(),
+				UseRegex:         rule.UseRegex.ValueBool(),
 			}
 			domainConf.CacheConf.CacheList = append(domainConf.CacheConf.CacheList, rule)
 		}
@@ -701,6 +667,7 @@ func (r *cdnDomainResource) buildUpdateCdnDomainRequest(m *cdnDomainResourceMode
 				Description:      rule.Description.ValueString(),
 				FollowOriginRule: rule.FollowOriginRule.ValueBool(),
 				HttpCodePattern:  fmt.Sprintf("%d", rule.HttpCode.ValueInt64()),
+				UseRegex:         rule.UseRegex.ValueBool(),
 			}
 			domainConf.CacheConf.HttpCodeCacheList = append(domainConf.CacheConf.HttpCodeCacheList, rule)
 		}
