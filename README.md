@@ -48,6 +48,10 @@ This custom provider exists due to UCloud doesn't support Terraform officially.
 
   Manage ssl certificates.
 
+- **st-ucloud_cdn_domain_ssl_association**
+
+  Associate and disassociate ssl from domain.
+
 ### Data Sources
 
 - **st-ucloud_ssl_certificate**
