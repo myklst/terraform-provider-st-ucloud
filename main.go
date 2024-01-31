@@ -16,7 +16,6 @@ func main() {
 	if providerAddress == "" {
 		providerAddress = "registry.terraform.io/myklst/st-ucloud"
 	}
-	providerAddress = "example.local/myklst/st-ucloud"
 	providerserver.Serve(context.Background(), ucloud.New, providerserver.ServeOpts{
 		Address: providerAddress,
 	})

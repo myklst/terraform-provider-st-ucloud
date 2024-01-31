@@ -1,7 +1,7 @@
 terraform-provider-st-ucloud
 ============================
 
-This Terraform custom provider is designed for own use case scenario.123
+This Terraform custom provider is designed for own use case scenario.
 
 Supported Versions
 ------------------
